@@ -124,6 +124,8 @@ class BPA_solver:
             
     def solve(self):
         expand_try_count = 0
+        import os 
+        os.makedirs("output", exist_ok=True)
         io.write_obj_file(f"output/{expand_try_count:04d}.obj", {"v": self.points, "f": self.faces})
         while True:
             self.edge_fringe = self.find_seed_triangle() # linked list of edges in the fringe
