@@ -13,6 +13,7 @@ def get_center_from_triangle_and_radius(a, b, c, r):
     ab = b - a
     abXac = np.cross(ab, ac)
     circumcenter = a + (np.cross(abXac, ab) * np.dot(ac, ac) + np.cross(ac, abXac) * np.dot(ab, ab)) / (2 * np.dot(abXac, abXac))
+    # print(circumcenter)
     normal = abXac / np.linalg.norm(abXac)
     delta = r ** 2 - np.dot(circumcenter-a, circumcenter-a)
     if delta < 0:
@@ -38,7 +39,17 @@ def dihedral_angle(a, b, c, d):
     v1 = (c-a) / np.linalg.norm(c-a)
     v2 = (d-a) / np.linalg.norm(d-a)
     angle = np.arccos(np.dot(v1, v2))
-    if np.dot(np.cross(v1, v2), n) < 0:
+    if np.cross(n, v1).dot(v2) < 0:
         angle = 2 * np.pi - angle
     return angle
-    
+
+if __name__ == "__main__":
+    # a = np.array([0,1,0])
+    # b = np.array([0,0,0])
+    # c = np.array([1,1,0])
+    # d = np.array([-1,0,-1])
+    # print(dihedral_angle(a, b, c, d) * 180 / np.pi)
+    a = np.array([0,1,0])
+    b = np.array([0,0,0])
+    c = np.array([1,0,0])
+    print(get_center_from_triangle_and_radius(a, b, c, 0.01))

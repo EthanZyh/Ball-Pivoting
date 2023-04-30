@@ -7,17 +7,16 @@ from grid import Grid
 class BPA_solver:
     "Ball Pivoting Algorithm Solver"
 
-    def __init__(self, points, normals, radius=0.4):
+    def __init__(self, points, normals, radius_list=[0.2, 0.3, 0.4]):
         self.points = points # N x 3
         self.normals = normals # N x 3
         self.faces = []
-        self.radius = radius
+        self.radius_list = radius_list if isinstance(radius_list, list) else [radius_list]
         self.preprocess()
-        self.grid = Grid(self.points, self.radius)
-        self.point_index_to_try = 3 # np.random.randint(len(self.points))
+        self.point_index_to_try = 0 # np.random.randint(len(self.points))
         self.is_used_point = np.zeros(len(self.points), dtype=bool)
         self.third_node_of_edge = {} # (p1, p2) -> third node
-        self.edge_fringe = [] # (= active edges)
+        self.edge_fringe = None # (= active edges)
     
     def preprocess(self):
         self.min_pos = np.min(self.points, axis=0) # 3
@@ -35,20 +34,22 @@ class BPA_solver:
         self.is_used_point[p1] = True
         self.is_used_point[p2] = True
         self.is_used_point[p3] = True
-        self.faces.append([p1,p3,p2]) # reverse order to make normal pointing inner
+        self.faces.append([p1,p2,p3]) # reverse order to make normal pointing inner
 
     def find_seed_triangle(self):
+        MAX_LIST_LEN = 5
         for i in range(len(self.points)):
             p1 = (self.point_index_to_try + i) % len(self.points)
             p1_neighbors = self.grid.get_neighbors(self.points[p1])
             p1_neighbors = sorted(p1_neighbors, key=lambda p2: np.sum((self.points[p1] - self.points[p2]) ** 2))
-            for p2 in p1_neighbors:
+            for p2 in p1_neighbors[:MAX_LIST_LEN]:
                 if p2 == p1:
                     continue
                 # potential_p3s = self.grid.get_neighbors(self.points[p2]) # = p1_neighbors?
                 potential_p3s = [p3 for p3 in p1_neighbors \
                                 if np.sum((self.points[p2] - self.points[p3]) ** 2) < 4 * self.radius ** 2]
-                for p3 in potential_p3s:
+                potential_p3s = sorted(potential_p3s, key=lambda p3: np.sum((self.points[p2] - self.points[p3]) ** 2))
+                for p3 in potential_p3s[:MAX_LIST_LEN]:
                     if p3 == p1 or p3 == p2:
                         continue
                     if (p1, p2) in self.third_node_of_edge or (p2, p1) in self.third_node_of_edge or \
@@ -59,8 +60,10 @@ class BPA_solver:
                         p2, p3 = p3, p2
                     center = math3d.get_center_from_triangle_and_radius(self.points[p1], self.points[p2], self.points[p3], self.radius)
                     if center is None:
+                        # print("center is None")
                         continue
                     if any([np.dot(center-self.points[p], center-self.points[p]) < self.radius ** 2 for p in p1_neighbors if p not in [p1, p2, p3]]):
+                        # print("interact with other points")
                         continue
                     print(f"add tri: {p1},{p2},{p3}")
                     # found one!
@@ -81,20 +84,23 @@ class BPA_solver:
             return False
         p1_neighbors = self.grid.get_neighbors(self.points[p1])
         potential_p3s = [p3 for p3 in p1_neighbors if p3 != p1 and p3 != p2 and \
-                        (p1,p3) not in self.third_node_of_edge and \
-                        (p3,p2) not in self.third_node_of_edge and \
                         np.sum((self.points[p2] - self.points[p3]) ** 2) < 4 * self.radius ** 2]
+        start_center = math3d.get_center_from_triangle_and_radius(self.points[p1], self.points[p2], self.points[p0], self.radius)
+        # for p3 in potential_p3s:
+        #     if p3 not in [p1,p2,p0]:
+        #         if np.dot(start_center-self.points[p3], start_center-self.points[p3]) < self.radius ** 2:
+        #             print("?????")
+        #             assert False
+        start_angle = math3d.dihedral_angle(self.points[p1], self.points[p2], self.points[p0], start_center)
         best_p3 = None
         min_angle = np.inf
         for p3 in potential_p3s: # potential new triangle: (p1,p3,p2)
             if p3 == p0:
                 continue
-            if np.dot(np.cross(self.points[p3] - self.points[p1], self.points[p2] - self.points[p1]), self.normals[p1]) >= 0:
-                continue
             center = math3d.get_center_from_triangle_and_radius(self.points[p1], self.points[p3], self.points[p2], self.radius)
             if center is None:
                 continue
-            angle = math3d.dihedral_angle(self.points[p1], self.points[p2], self.points[p0], center)
+            angle = math3d.dihedral_angle(self.points[p1], self.points[p2], start_center, center)
             if angle < min_angle:
                 min_angle = angle
                 best_p3 = p3
@@ -104,11 +110,16 @@ class BPA_solver:
         # check no points inside the sphere
         center = math3d.get_center_from_triangle_and_radius(self.points[p1], self.points[p3], self.points[p2], self.radius)
         angle = math3d.dihedral_angle(self.points[p1], self.points[p2], self.points[p0], center)
-        for p in p1_neighbors:
-            if p not in [p1, p2, p3]:
-                if np.dot(center-self.points[p], center-self.points[p]) < self.radius ** 2:
-                    # print("!!!!!", p0 == p, angle)
-                    return False
+        # if not 40 < angle / np.pi * 180 < 140:
+        #     return False
+        # for p in p1_neighbors:
+        #     if p not in [p1,p2,p3] and np.dot(center-self.points[p], center-self.points[p]) < self.radius ** 2:
+        #         print("!!!!!", p0 == p, p in potential_p3s, angle, start_angle)
+        #         assert False
+        if (p1, p3) in self.third_node_of_edge or (p3, p2) in self.third_node_of_edge:
+            return False
+        if np.dot(np.cross(self.points[p3] - self.points[p1], self.points[p2] - self.points[p1]), self.normals[p1]) >= 0:
+            return False
         # found one!
         self.add_triangle(p1, p3, p2)
         self.edge_fringe.pop(edge_index)
@@ -127,8 +138,11 @@ class BPA_solver:
         import os 
         os.makedirs("output", exist_ok=True)
         io.write_obj_file(f"output/{expand_try_count:04d}.obj", {"v": self.points, "f": self.faces})
-        while True:
-            self.edge_fringe = self.find_seed_triangle() # linked list of edges in the fringe
+        for radius in self.radius_list:
+            self.radius = radius 
+            self.grid = Grid(self.points, self.radius)
+            if self.edge_fringe is None:
+                self.edge_fringe = self.find_seed_triangle() # linked list of edges in the fringe
             if self.edge_fringe is None:
                 break
             edge_index = 0

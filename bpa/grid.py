@@ -25,6 +25,6 @@ class Grid:
         '''get points that are within self.delta from a point'''
         grid_coord = np.floor(point / self.delta).astype(int)
         neighbors = [self.grid.get(tuple(grid_coord+coord_delta), []) for coord_delta in self.neighbors_coord_delta]
-        neighbors = [id for ids in neighbors for id in ids if np.sum((self.points[id] - point) ** 2) < self.delta2]
+        neighbors = [id for ids in neighbors for id in ids if np.dot(point-self.points[id], point-self.points[id]) < self.delta2]
         return neighbors
         
