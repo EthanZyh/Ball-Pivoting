@@ -62,7 +62,7 @@ class BPA_solver:
                         continue
                     if any([np.dot(center-self.points[p], center-self.points[p]) < self.radius ** 2 for p in p1_neighbors if p not in [p1, p2, p3]]):
                         continue
-                    print(f"add tri: {p1},{p2},{p3}")
+                    # print(f"add tri: {p1},{p2},{p3}")
                     # found one!
                     self.add_triangle(p1, p2, p3)
                     self.point_index_to_try = (p1 + 1) % len(self.points)
@@ -124,7 +124,7 @@ class BPA_solver:
         expand_try_count = 0
         import os 
         os.makedirs("output", exist_ok=True)
-        io.write_obj_file(f"output/{expand_try_count:04d}.obj", {"v": self.normalize(self.points), "f": self.faces})
+        # io.write_obj_file(f"output/{expand_try_count:04d}.obj", {"v": self.normalize(self.points), "f": self.faces})
         for radius in self.radius_list:
             print(f"working on radius {radius}")
             self.radius = radius 
@@ -139,8 +139,8 @@ class BPA_solver:
                 expand_try_count += 1
                 if not self.expand_triangle(edge_index):
                     edge_index += 1
-                if expand_try_count % 400 == 0:
-                    print(expand_try_count)
-                    io.write_obj_file(f"output/{expand_try_count:04d}.obj", {"v": self.points-5, "f": self.faces})
+                # if expand_try_count % 400 == 0:
+                #     print(expand_try_count)
+                #     io.write_obj_file(f"output/{expand_try_count:04d}.obj", {"v": self.points-5, "f": self.faces})
         self.postprocess()
-        return {"v": self.points-5, "f": self.faces}
+        return {"v": self.points, "f": self.faces}
